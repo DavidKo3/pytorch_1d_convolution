@@ -47,14 +47,6 @@ class CSVDataset(Dataset):
 
 
 dataset = CSVDataset('../data/splice.data.txt')
-print(dataset.len)
-print(dataset.x_train[1])
-print(dataset.y_train[1])
-
-print(dataset.x_test[1])
-print(dataset.y_test[1])
-
-
 
 
 
