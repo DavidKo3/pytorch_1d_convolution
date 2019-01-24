@@ -53,8 +53,7 @@ class CSVDataset(Dataset):
         return self.len
 
 
-batch_size= 10
-
+batch_size=30
 train_transform = T.Compose([
         T.ToTensor(),
     ])
@@ -63,7 +62,7 @@ train_transform = T.Compose([
 trained_dataset = CSVDataset("../data/train.npz", x="X_train", y="Y_train", transform=train_transform)
 test_dataset = CSVDataset("../data/test.npz", x="X_test", y="Y_test")
 # print(trained_dataset[15])
-train_loader = DataLoader(trained_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+train_loader = DataLoader(trained_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
 print("len of train_loader : ", len(train_loader))
@@ -73,8 +72,8 @@ class SeqModel(nn.Module):
         super(SeqModel, self).__init__()
         self.conv1 = nn.Conv1d(1, 10, 3, stride=1)
         self.conv2 = nn.Conv1d(10, 3, 3, stride=1)
-        self.fc1 = nn.Linear(168, 3)
-
+        self.fc1 = nn.Linear(168, 84)
+        self.fc2 = nn.Linear(84, 3)
     #
     def forward(self, x):
         # print(self.conv1(x))
@@ -86,6 +85,7 @@ class SeqModel(nn.Module):
         x = x.view(x.size(0), -1)
         # print(x.size())
         x = self.fc1(x)
+        x = self.fc2(x)
         return x
 
 
@@ -98,15 +98,18 @@ model = SeqModel()
 model.to(device)
 model.train()
 criterion = nn.CrossEntropyLoss().cuda()
-optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 
 
-epochs=100
+epochs=1500
+total_loss = 0
 for epoch in range(epochs):
     print('\n-----> epoch %d ' % epoch)
     running_loss = 0.0
+    print("len(train_loader) % batch_size :", round(len(train_loader) /batch_size))
+    len_of_batch = round(len(train_loader) /batch_size)
     for i, data in enumerate(train_loader):
-        print(i, data)
+        # print(i, data)
         x_train, y_train = data
         # print(data)
         # print(x_train.size())
@@ -132,19 +135,27 @@ for epoch in range(epochs):
             y_var = torch.cuda.LongTensor([y_var])
         loss = criterion(outputs, y_var)
 
-
+        _ , preds = torch.max(outputs, 1)
+        # print("preds ", preds)
+        # print("y_var.data ", y_var.data)
+        acc = (preds==y_var.data).sum()
+        # print("acc ", acc.data)
         loss.backward()
         optimizer.step()
 
         # print statisitics
         running_loss += loss.item()
 
+
         if i % batch_size == 0:
+            total_loss += running_loss / batch_size
             print(" [%d, %5d] loss : %.3f" % (epoch+1, i+1, running_loss/batch_size))
             running_loss=0.0
 
 
-
+    total_loss = total_loss/len_of_batch
+    print("[%d epoch loss :%.3f" % (epoch+1, total_loss))
+    total_loss = 0
 
 
 
